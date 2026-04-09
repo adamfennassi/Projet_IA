@@ -1,0 +1,149 @@
+{% extends "webapp/base.html" %}
+{% block title %}Diagramme de Gantt{% endblock %}
+
+{% block content %}
+<h3 class="fw-bold mb-4">Diagramme de Gantt</h3>
+
+<div class="card p-3 mb-4">
+    <p class="text-muted mb-1">{{ result.name }} - {{ result.created_at|date:"d/m/Y H:i" }}</p>
+    {% if result.gantt_image %}
+    <img src="{{ result.gantt_image.url }}" class="img-fluid rounded" alt="Diagramme de Gantt">
+    {% endif %}
+</div>
+
+{% if data.kpis %}
+<div class="card p-4 mb-4">
+    <h5 class="fw-bold">KPI de la solution</h5>
+    <div class="row g-3 mt-2">
+        <div class="col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+                <h4 class="text-primary">{{ data.kpis.makespan }}</h4>
+                <small>Makespan</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+                <h4 class="text-success">{{ data.kpis.objective }}</h4>
+                <small>Objectif</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+                <h4 class="text-warning">{{ data.kpis.solve_time }}s</h4>
+                <small>Temps de resolution</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+                <h4 class="text-info">{{ data.kpis.avg_utilization }}%</h4>
+                <small>Utilisation moyenne</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if data.kpis.machine_utilization %}
+<div class="card p-4 mb-4">
+    <h5 class="fw-bold">Analyse des machines</h5>
+    <div class="row g-3 mt-2">
+        {% for machine, util in data.kpis.machine_utilization.items %}
+        <div class="col-md-4">
+            <div class="p-3 border rounded">
+                <h6 class="fw-bold">{{ machine }}</h6>
+                <div class="progress mb-2" style="height: 20px;">
+                    <div class="progress-bar {% if util > 70 %}bg-success{% elif util > 40 %}bg-warning{% else %}bg-danger{% endif %}"
+                         style="width: {{ util }}%;">
+                        {{ util|floatformat:1 }}%
+                    </div>
+                </div>
+                <small class="text-muted">
+                    {% if util > 70 %}Bien utilisee
+                    {% elif util > 40 %}Utilisation moyenne
+                    {% elif util > 0 %}Sous-utilisee
+                    {% else %}Inactive
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if machine_tasks %}
+<div class="card p-4 mb-4">
+    <h5 class="fw-bold">Affectation des taches par machine</h5>
+    {% for machine, tasks in machine_tasks.items %}
+    <div class="mt-3">
+        <h6 class="fw-bold text-primary">{{ machine }} <span class="badge bg-secondary">{{ tasks|length }} tache{{ tasks|length|pluralize:"s" }}</span></h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr><th>Tache</th><th>Debut</th><th>Fin</th><th>Duree</th><th>Echeance</th><th>Slack</th><th>Predecesseur</th></tr>
+                </thead>
+                <tbody>
+                {% for t in tasks %}
+                <tr class="{% if t.slack != '' and t.slack <= 5 %}table-danger{% endif %}">
+                    <td><strong>{{ t.name }}</strong></td>
+                    <td>{{ t.start }}</td>
+                    <td>{{ t.end }}</td>
+                    <td>{{ t.duration }}</td>
+                    <td>{{ t.due_date }}</td>
+                    <td>
+                        {% if t.slack != '' %}
+                            {% if t.slack <= 5 %}<span class="badge bg-danger">{{ t.slack }}</span>
+                            {% elif t.slack <= 20 %}<span class="badge bg-warning text-dark">{{ t.slack }}</span>
+                            {% else %}<span class="badge bg-success">{{ t.slack }}</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>{% if t.predecessors != "none" %}{{ t.predecessors }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if data.solution %}
+<div class="card p-4">
+    <h5 class="fw-bold">Toutes les taches (ordre chronologique)</h5>
+    <div class="table-responsive">
+        <table class="table table-hover mt-3">
+            <thead class="table-dark">
+                <tr><th>Tache</th><th>Machine</th><th>Debut</th><th>Fin</th><th>Duree</th><th>Echeance</th><th>Slack</th></tr>
+            </thead>
+            <tbody>
+            {% for task_name, info in data.solution.items %}
+            <tr class="{% if info.slack != None and info.slack <= 5 %}table-danger{% endif %}">
+                <td><strong>{{ task_name }}</strong></td>
+                <td>{{ info.machine }}</td>
+                <td>{{ info.start }}</td>
+                <td>{{ info.end }}</td>
+                <td>{{ info.duration }}</td>
+                <td>{% if info.due_date %}{{ info.due_date }}{% endif %}</td>
+                <td>
+                    {% if info.slack != None %}
+                        {% if info.slack <= 5 %}<span class="badge bg-danger">{{ info.slack }}</span>
+                        {% elif info.slack <= 20 %}<span class="badge bg-warning text-dark">{{ info.slack }}</span>
+                        {% else %}<span class="badge bg-success">{{ info.slack }}</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="mt-3">
+    <a href="{% url 'index' %}" class="btn btn-outline-secondary">Retour</a>
+    <a href="{% url 'upload_csv' %}" class="btn btn-primary">Nouveau CSV</a>
+</div>
+{% endblock %}

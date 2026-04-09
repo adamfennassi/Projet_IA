@@ -1,6 +1,8 @@
 # Intelligence Artificielle Hybride pour l'Ordonnancement
 
-Projet tutore L3 MIASHS - Prof: Romain Guillaume (IRIT / ANITI)
+Projet tutore L3 MIASHS - Prof: Romain Guillaume
+
+Réalisé par : Adam Fennassi, Oussama Touili
 
 ## Objectif
 
@@ -18,15 +20,56 @@ Comparer 3 approches pour resoudre des problemes d'ordonnancement sur machines p
 Projet_tutore_AI/
 ├── model_machine_parallele.ipynb   # Notebook original (modele CP-SAT du client)
 ├── generator.py                    # Generateur de datasets (3 niveaux de difficulte)
-├── benchmark.py                    # Compare les 3 methodes et collecte les KPI
-├── dashboard.py                    # Genere les graphiques de comparaison
-├── benchmark_results.json          # Resultats bruts du benchmark
-├── dashboard_kpi.png               # Dashboard visuel des KPI
-└── algorithms/
-    ├── cp_sat_solver.py            # Solveur PPC pur (CP-SAT)
-    ├── ml_solver.py                # Solveur ML pur (PyTorch)
-    └── hybrid_solver.py            # Solveur hybride PPC + ML
+├── benchmark.py                    # Compare les 3 methodes en ligne de commande
+├── dashboard.py                    # Genere les graphiques de comparaison (PNG)
+├── manage.py                       # Point d'entree Django
+│
+├── algorithms/                     # Les 3 algorithmes d'ordonnancement
+│   ├── cp_sat_solver.py            # Solveur PPC pur (CP-SAT)
+│   ├── ml_solver.py                # Solveur ML pur (PyTorch)
+│   └── hybrid_solver.py            # Solveur hybride PPC + ML
+│
+├── webapp/                         # Interface web Django
+│   ├── views.py                    # Logique des pages
+│   ├── models.py                   # Modele BenchmarkResult (stockage resultats)
+│   ├── urls.py                     # Routes
+│   ├── forms.py                    # Formulaire upload CSV
+│   └── templates/webapp/           # Templates HTML (Bootstrap 5)
+│       ├── base.html               # Layout commun (navbar, footer)
+│       ├── index.html              # Page d'accueil + resultats recents
+│       ├── upload.html             # Upload CSV + resolution CP-SAT
+│       ├── benchmark_form.html     # Lancer un benchmark (3 methodes)
+│       ├── dashboard.html          # Dashboard KPI avec graphiques
+│       └── gantt.html              # Diagramme de Gantt + detail taches
+│
+└── config/                         # Configuration Django
+    ├── settings.py
+    ├── urls.py
+    └── wsgi.py
 ```
+
+## Interface web
+
+L'application Django propose 4 pages :
+
+### 1. Accueil (`/`)
+- Vue d'ensemble du projet
+- Liste des resultats recents avec boutons de suppression (individuel ou tout supprimer)
+
+### 2. Upload CSV (`/upload/`)
+- Charger un fichier CSV avec des taches et des machines
+- Resolution avec **CP-SAT** (~1 seconde)
+- Affiche le diagramme de Gantt et les KPI (makespan, objectif, temps)
+
+### 3. Benchmark (`/benchmark/`)
+- Lance la comparaison des **3 methodes** (CP-SAT, ML, Hybride) sur 3 niveaux de difficulte
+- Parametrable : nombre d'instances d'entrainement et de test
+- Genere le dashboard KPI automatiquement
+
+### 4. Dashboard (`/dashboard/`)
+- Graphiques de comparaison : makespan, temps, objectif, utilisation machines
+- Courbes d'entrainement du modele ML
+- Tableau recapitulatif avec tous les KPI
 
 ## Comment ca marche
 
@@ -60,57 +103,51 @@ Le but : affecter les taches aux machines et determiner quand les lancer, en **m
 - CP-SAT demarre pres de l'optimum au lieu de partir de zero
 - Combine la qualite de la PPC avec la rapidite du ML
 
-### Le pipeline
-
-```
-generator.py          Genere des problemes (facile / moyen / difficile)
-      |
-      v
-benchmark.py          Entraine le ML, teste les 3 methodes, collecte les KPI
-      |
-      v
-benchmark_results.json    Donnees brutes (makespan, temps, objectif, utilisation)
-      |
-      v
-dashboard.py          Genere les graphiques de comparaison
-      |
-      v
-dashboard_kpi.png     Dashboard visuel final
-```
-
 ## Installation
 
 ```bash
-pip install ortools torch matplotlib numpy pandas
+pip install django ortools torch matplotlib numpy pandas
 ```
 
 ## Utilisation
 
-### Etape 1 : Lancer le benchmark (~10 min, une seule fois)
+### Option 1 : Interface web (recommande)
+
 ```bash
 cd Projet_tutore_AI
+python manage.py migrate
+python manage.py runserver
+```
+
+Ouvrir **http://127.0.0.1:8000/** dans le navigateur.
+
+- **Upload CSV** : resoudre un probleme avec CP-SAT, voir le Gantt
+- **Benchmark** : comparer les 3 methodes, voir le dashboard KPI
+
+### Option 2 : Ligne de commande
+
+```bash
+# Lancer le benchmark (~2 min)
 python benchmark.py
-```
 
-Ce script :
-1. Genere 200 instances et entraine le reseau de neurones dessus (~10 min)
-2. Teste les 3 methodes sur 10 instances par niveau de difficulte
-3. Affiche un tableau comparatif dans le terminal
-4. Sauvegarde les resultats dans `benchmark_results.json`
-
-### Etape 2 : Generer le dashboard (instantane)
-```bash
+# Generer le dashboard (PNG)
 python dashboard.py
+
+# Generer le Gantt comparatif
+python dashboard.py --gantt
 ```
 
-Genere `dashboard_kpi.png` avec 6 graphiques + un tableau recapitulatif.
+## Format CSV
 
-### (Optionnel) Regenerer les datasets
-```bash
-python generator.py
+```csv
+task_name,duration,predecessors,relase_date,due_date
+task_a_1,60,none,0,300
+task_a_2,40,task_a_1,60,300
+task_b_1,50,none,0,250
+task_b_2,30,task_b_1,50,250
+
+MACHINES,"m_1,m_2",,,
 ```
-
-Cree `dataset_facile.csv`, `dataset_moyen.csv`, `dataset_difficile.csv`.
 
 ## KPI mesures
 
@@ -122,23 +159,16 @@ Cree `dataset_facile.csv`, `dataset_moyen.csv`, `dataset_difficile.csv`.
 | **Utilisation machines** | % du temps ou les machines travaillent | Plus grand |
 | **Taux de resolution** | % d'instances ou une solution est trouvee | Plus grand |
 
-## Niveaux de difficulte
-
-| Niveau | Taches | Machines | Marge (slack) | Description |
-|--------|--------|----------|---------------|-------------|
-| Facile | 6 | 4 | 60% | Beaucoup de ressources et de flexibilite |
-| Moyen | 10 | 3 | 30% | Ressources moderees |
-| Difficile | 16 | 2 | 10% | Peu de machines, contraintes serrees |
-
 ## Technologies
 
 - **Python 3.8+**
+- **Django** - interface web
 - **Google OR-Tools (CP-SAT)** - solveur de programmation par contraintes
 - **PyTorch** - reseau de neurones pour le ML
-- **Matplotlib** - visualisation des KPI
-- **NumPy / Pandas** - manipulation de donnees
+- **Matplotlib** - visualisation (Gantt, dashboard KPI)
+- **Bootstrap 5** - interface responsive
 
 ## Auteurs
 
 Projet tutore L3 MIASHS - 2025
-Client : Romain Guillaume, Maitre de conference HDR, IRIT / ANITI
+Prof : Romain Guillaume, Maitre de conference HDR, IRIT / ANITI

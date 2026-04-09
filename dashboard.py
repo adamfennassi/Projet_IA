@@ -190,15 +190,153 @@ def plot_dashboard(results):
     print("\nDashboard sauvegarde : dashboard_kpi.png")
 
 
+def plot_gantt(csv_file=None):
+    """
+    Genere un diagramme de Gantt comparatif (3 methodes) pour une instance.
+    Les taches sont colorees par projet et triees par temps d'execution.
+    """
+    from generator import SchedulingDatasetGenerator, taskInfo
+    from algorithms.cp_sat_solver import CPSatSolver
+    from algorithms.ml_solver import MLSolver, SchedulingNet, INPUT_DIM, MAX_MACHINES
+    from algorithms.hybrid_solver import HybridSolver
+
+    # Charger ou generer une instance
+    gen = SchedulingDatasetGenerator(seed=42)
+
+    if csv_file:
+        tasks_nt, machines = gen.load_from_csv(csv_file)
+        instance_name = os.path.basename(csv_file)
+    else:
+        tasks_nt, machines = gen.generate_dataset(**gen.MOYEN)
+        instance_name = "Instance generee (moyen)"
+
+    tasks_dict = {
+        n: {"duration": t.duration, "predecessors": t.predecessors,
+            "relase_date": t.relase_date, "due_date": t.due_date}
+        for n, t in tasks_nt.items()
+    }
+
+    # Entrainer un petit modele ML
+    print("Entrainement rapide du ML pour le Gantt...")
+    ml = MLSolver(tasks_dict, machines)
+    ml.train(gen, num_instances=50, epochs=50)
+    trained_model = ml.model
+
+    # Resoudre avec les 3 methodes
+    solvers = {
+        "CP-SAT (PPC)": CPSatSolver(tasks_dict, machines, time_limit=30),
+        "ML (PyTorch)": MLSolver(tasks_dict, machines, model=trained_model),
+        "Hybride (PPC+ML)": HybridSolver(tasks_dict, machines, ml_model=trained_model, time_limit=30),
+    }
+
+    solutions = {}
+    for name, solver in solvers.items():
+        sol = solver.solve()
+        if sol:
+            solutions[name] = sol
+
+    if not solutions:
+        print("Aucune solution trouvee.")
+        return
+
+    # Couleurs par projet
+    project_colors = plt.cm.tab10(np.linspace(0, 1, 10))
+
+    def get_project(task_name):
+        parts = task_name.rsplit("_", 1)
+        return parts[0] if len(parts) == 2 and parts[1].isdigit() else task_name
+
+    projects = sorted(set(get_project(t) for t in tasks_dict))
+    proj_color = {p: project_colors[i % 10] for i, p in enumerate(projects)}
+
+    # Creer la figure : 1 sous-graphique par methode
+    n_methods = len(solutions)
+    fig, axes = plt.subplots(n_methods, 1, figsize=(16, 4 * n_methods + 2), sharex=True)
+    if n_methods == 1:
+        axes = [axes]
+
+    fig.suptitle(
+        f"Diagramme de Gantt Comparatif - {instance_name}\n"
+        "Taches triees par temps d'execution sur chaque machine",
+        fontsize=14, fontweight="bold", y=0.98,
+    )
+
+    for ax, (method_name, sol) in zip(axes, solutions.items()):
+        # Trier les taches par start time pour chaque machine
+        machine_tasks = {m: [] for m in machines}
+        for task_name, info in sol.items():
+            machine_tasks[info["machine"]].append((task_name, info))
+
+        for m in machine_tasks:
+            machine_tasks[m].sort(key=lambda x: x[1]["start"])
+
+        yticks = []
+        yticklabels = []
+
+        for m_idx, m in enumerate(machines):
+            y = m_idx
+            yticks.append(y)
+            yticklabels.append(m)
+
+            for task_name, info in machine_tasks[m]:
+                proj = get_project(task_name)
+                color = proj_color[proj]
+
+                ax.barh(y, info["duration"], left=info["start"],
+                        height=0.6, color=color, edgecolor="black",
+                        linewidth=1, alpha=0.85)
+
+                # Nom de la tache au centre
+                ax.text(info["start"] + info["duration"] / 2, y,
+                        task_name, ha="center", va="center",
+                        fontsize=7, fontweight="bold", color="white",
+                        bbox=dict(boxstyle="round,pad=0.2", facecolor="black",
+                                  alpha=0.3, edgecolor="none"))
+
+        makespan = max(info["end"] for info in sol.values())
+        obj = sum(info["start"] for info in sol.values())
+
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(yticklabels, fontsize=10, fontweight="bold")
+        ax.set_title(f"{method_name}  |  Makespan = {makespan}  |  Objectif = {obj:.0f}",
+                     fontweight="bold", fontsize=11)
+        ax.grid(axis="x", alpha=0.3, linestyle="--")
+        ax.set_axisbelow(True)
+
+    axes[-1].set_xlabel("Temps", fontsize=12, fontweight="bold")
+
+    # Legende des projets
+    import matplotlib.patches as mpatches
+    legend_patches = [mpatches.Patch(color=proj_color[p], label=p, alpha=0.85)
+                      for p in projects]
+    fig.legend(handles=legend_patches, loc="lower center", ncol=min(len(projects), 8),
+               fontsize=9, title="Projets", bbox_to_anchor=(0.5, 0.01))
+
+    plt.tight_layout(rect=[0, 0.05, 1, 0.93])
+    plt.savefig("gantt_comparatif.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Diagramme de Gantt sauvegarde : gantt_comparatif.png")
+
+
 if __name__ == "__main__":
     force = "--run" in sys.argv
+    gantt = "--gantt" in sys.argv
 
     print("=" * 60)
     print(" DASHBOARD KPI - ORDONNANCEMENT HYBRIDE PPC + ML")
     print("=" * 60)
 
-    results = load_or_run(force_run=force)
-    if results:
-        plot_dashboard(results)
+    if gantt:
+        # Chercher un CSV en argument ou utiliser le moyen par defaut
+        csv_arg = None
+        for arg in sys.argv[1:]:
+            if arg.endswith(".csv"):
+                csv_arg = arg
+                break
+        plot_gantt(csv_file=csv_arg)
     else:
-        print("Erreur lors du benchmark.")
+        results = load_or_run(force_run=force)
+        if results:
+            plot_dashboard(results)
+        else:
+            print("Erreur lors du benchmark.")

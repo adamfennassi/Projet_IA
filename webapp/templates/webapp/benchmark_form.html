@@ -1,0 +1,78 @@
+{% extends "webapp/base.html" %}
+{% block title %}Benchmark{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card p-4">
+            <h4 class="fw-bold mb-3">Lancer un Benchmark</h4>
+            <p class="text-muted">Compare CP-SAT (PPC), ML (PyTorch) et Hybride (PPC+ML) sur 3 niveaux de difficulte.</p>
+
+            {% if running %}
+            <div class="alert alert-warning d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm text-warning me-3" role="status"></div>
+                <div>
+                    <strong>Un benchmark est deja en cours.</strong><br>
+                    Veuillez patienter avant d'en lancer un nouveau.
+                </div>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" id="benchmarkForm" {% if running %}style="pointer-events:none;opacity:0.5"{% endif %}>
+                {% csrf_token %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Instances d'entrainement ML</label>
+                        <input type="number" name="num_train" class="form-control" value="20" min="10" max="500">
+                        <small class="text-muted">Plus = meilleure precision mais plus long</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Instances de test par niveau</label>
+                        <input type="number" name="num_test" class="form-control" value="2" min="1" max="20">
+                        <small class="text-muted">Nombre de problemes par difficulte</small>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Temps estime :</strong> ~30 secondes avec les valeurs par defaut.
+                </div>
+
+                <button type="submit" class="btn btn-warning btn-lg w-100" id="submitBtn">
+                    Lancer le Benchmark
+                </button>
+            </form>
+
+            <!-- Indicateur de chargement -->
+            <div id="loading" style="display:none" class="text-center mt-4">
+                <div class="spinner-border text-warning" style="width:3rem;height:3rem;" role="status"></div>
+                <h5 class="mt-3 fw-bold">Benchmark en cours...</h5>
+                <p class="text-muted">Entrainement du ML + tests sur 3 niveaux de difficulte</p>
+                <div class="progress mt-3" style="height:8px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width:100%"></div>
+                </div>
+                <p class="text-muted mt-2"><small>Ne fermez pas cette page. Ca peut prendre 2-3 minutes.</small></p>
+            </div>
+        </div>
+
+        <div class="card p-4 mt-4">
+            <h5 class="fw-bold">Comment ca marche ?</h5>
+            <ol>
+                <li><strong>Entrainement ML</strong> : genere des problemes, les resout avec CP-SAT, et entraine un reseau de neurones sur les solutions</li>
+                <li><strong>Test</strong> : resout de nouvelles instances avec les 3 methodes (PPC, ML, Hybride)</li>
+                <li><strong>Comparaison</strong> : collecte les KPI (makespan, temps, utilisation) et genere le dashboard</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('benchmarkForm').addEventListener('submit', function() {
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+});
+</script>
+{% endblock %}

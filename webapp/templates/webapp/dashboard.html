@@ -1,0 +1,79 @@
+{% extends "webapp/base.html" %}
+{% block title %}Dashboard KPI{% endblock %}
+
+{% block content %}
+<h3 class="fw-bold mb-4">Dashboard KPI</h3>
+
+{% if result %}
+    <div class="card p-3 mb-4">
+        <p class="text-muted mb-1">{{ result.name }} - {{ result.created_at|date:"d/m/Y H:i" }}</p>
+        {% if result.dashboard_image %}
+        <img src="{{ result.dashboard_image.url }}" class="img-fluid rounded" alt="Dashboard KPI">
+        {% endif %}
+    </div>
+
+    {% if summary %}
+    <div class="card p-4 mb-4">
+        <h5 class="fw-bold">Tableau Recapitulatif</h5>
+        <div class="table-responsive">
+            <table class="table table-striped mt-3">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Difficulte</th><th>Methode</th><th>Resolus</th>
+                        <th>Makespan</th><th>Objectif</th><th>Temps (s)</th><th>Utilisation %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for diff, methods in summary.items %}
+                    {% for key, stats in methods.items %}
+                    <tr class="{% if 'ML' in stats.method %}table-warning{% elif 'Hybride' in stats.method %}table-success{% else %}table-info{% endif %}">
+                        <td>{{ diff|capfirst }}</td>
+                        <td><strong>{{ stats.method }}</strong></td>
+                        <td>{{ stats.solved }}</td>
+                        <td>{% if stats.avg_makespan %}{{ stats.avg_makespan }}{% else %}N/A{% endif %}</td>
+                        <td>{% if stats.avg_objective %}{{ stats.avg_objective }}{% else %}N/A{% endif %}</td>
+                        <td>{% if stats.avg_solve_time %}{{ stats.avg_solve_time }}{% else %}N/A{% endif %}</td>
+                        <td>{% if stats.avg_utilization %}{{ stats.avg_utilization }}%{% else %}N/A{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if training %}
+    <div class="card p-4">
+        <h5 class="fw-bold">Entrainement ML</h5>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-primary">{{ training.num_instances }}</h3>
+                    <small>Instances d'entrainement</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-success">{{ training.final_accuracy|floatformat:1 }}%</h3>
+                    <small>Precision finale</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-warning">{{ training.training_time|floatformat:1 }}s</h3>
+                    <small>Temps d'entrainement</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% else %}
+    <div class="card p-5 text-center">
+        <h5>Aucun benchmark disponible</h5>
+        <p class="text-muted">Lancez un benchmark pour voir les resultats ici.</p>
+        <a href="{% url 'benchmark' %}" class="btn btn-warning">Lancer un Benchmark</a>
+    </div>
+{% endif %}
+{% endblock %}

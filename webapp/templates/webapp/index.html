@@ -1,0 +1,64 @@
+{% extends "webapp/base.html" %}
+{% block title %}Accueil - Ordonnancement Hybride{% endblock %}
+
+{% block content %}
+<div class="hero p-5 mb-4">
+    <h1 class="fw-bold">Intelligence Artificielle Hybride pour l'Ordonnancement</h1>
+    <p class="lead mt-3">Comparaison de 3 approches : PPC (CP-SAT), ML (PyTorch) et Hybride (PPC+ML)</p>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 p-4">
+            <h5 class="fw-bold text-primary">1. Upload CSV</h5>
+            <p>Chargez un fichier CSV avec vos taches et machines pour resoudre le probleme d'ordonnancement avec CP-SAT.</p>
+            <a href="{% url 'upload_csv' %}" class="btn btn-primary mt-auto">Charger un CSV</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 p-4">
+            <h5 class="fw-bold text-warning">2. Benchmark</h5>
+            <p>Lancez un benchmark complet pour comparer les 3 methodes (PPC, ML, Hybride) sur 3 niveaux de difficulte.</p>
+            <a href="{% url 'benchmark' %}" class="btn btn-warning mt-auto">Lancer le Benchmark</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 p-4">
+            <h5 class="fw-bold text-success">3. Dashboard KPI</h5>
+            <p>Visualisez les resultats : graphiques de comparaison, makespan, temps de resolution, utilisation machines.</p>
+            <a href="{% url 'dashboard' %}" class="btn btn-success mt-auto">Voir le Dashboard</a>
+        </div>
+    </div>
+</div>
+
+{% if results %}
+<div class="card p-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0">Resultats recents</h5>
+        <form method="post" action="{% url 'delete_all' %}" onsubmit="return confirm('Supprimer tous les resultats ?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-danger">Tout supprimer</button>
+        </form>
+    </div>
+    <table class="table table-hover mt-3">
+        <thead><tr><th>Nom</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for r in results %}
+        <tr>
+            <td>{{ r.name }}</td>
+            <td>{{ r.created_at|date:"d/m/Y H:i" }}</td>
+            <td>
+                {% if r.gantt_image %}<a href="{% url 'gantt' r.id %}" class="btn btn-sm btn-outline-primary">Gantt</a>{% endif %}
+                {% if r.dashboard_image %}<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-success">Dashboard</a>{% endif %}
+                <form method="post" action="{% url 'delete_result' r.id %}" class="d-inline" onsubmit="return confirm('Supprimer ce resultat ?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

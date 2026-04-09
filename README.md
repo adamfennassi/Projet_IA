@@ -167,8 +167,3 @@ MACHINES,"m_1,m_2",,,
 - **PyTorch** - reseau de neurones pour le ML
 - **Matplotlib** - visualisation (Gantt, dashboard KPI)
 - **Bootstrap 5** - interface responsive
-
-## Auteurs
-
-Projet tutore L3 MIASHS - 2025
-Prof : Romain Guillaume, Maitre de conference HDR, IRIT / ANITI

@@ -1,6 +1,6 @@
 # Intelligence Artificielle Hybride pour l'Ordonnancement
 
-Projet tutore L3 MIASHS - Client : Romain Guillaume (IRIT / ANITI)
+Projet tutore L3 MIASHS - Prof: Romain Guillaume (IRIT / ANITI)
 
 ## Objectif
 
